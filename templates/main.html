@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>아잉 월드 통합 포털</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        :root { --pink: #ff79c6; --bg: #0b0e14; --card: #1a1c2c; }
+        body { background: var(--bg); color: white; font-family: 'Pretendard', sans-serif; display: flex; margin: 0; }
+        nav { width: 220px; background: #000; height: 100vh; padding: 20px; position: fixed; }
+        nav button { width: 100%; padding: 15px; margin-bottom: 10px; background: var(--card); border: 1px solid var(--pink); color: white; border-radius: 10px; cursor: pointer; }
+        nav button:hover { background: var(--pink); color: black; }
+        main { margin-left: 260px; padding: 40px; width: 100%; }
+        .card { background: var(--card); padding: 25px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .tab { display: none; } .active { display: block; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; background: #282a36; color: white; }
+        .reels { display: flex; gap: 15px; margin-bottom: 20px; }
+        .reel { width: 100px; height: 100px; background: white; color: black; font-size: 3rem; display: flex; align-items: center; justify-content: center; border-radius: 15px; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h1 style="color:var(--pink); text-align: center;">A-ING</h1>
+    <button onclick="showTab('info')">📋 내 정보</button>
+    <button onclick="showTab('bank')">🏦 아잉은행</button>
+    <button onclick="showTab('slot')">🎰 슬롯머신</button>
+</nav>
+
+<main>
+    <div id="tab-info" class="tab active">
+        <div class="card">
+            <h2>💰 자산 현황</h2>
+            <p>보유 금액: <strong style="font-size:1.5rem;">{{ "{:,}".format(user['money']) }}원</strong></p>
+            <p>대출 잔액: <span style="color:var(--pink)">{{ "{:,}".format(user['loan']) }}원</span></p>
+            <p>현재 등급: <span style="color:#f1fa8c">{{ user['grade'] }}</span> (한도: {{ "{:,}".format(GRADE_DATA[user['grade']]['limit']) }}원)</p>
+        </div>
+    </div>
+
+    <div id="tab-bank" class="tab">
+        <div class="card">
+            <h3>💸 10% 수수료 송금</h3>
+            <select id="to_id">
+                {% for u in all_users %}{% if u.id != user['id'] %}<option value="{{u.id}}">{{u.name}}</option>{% endif %}{% endfor %}
+            </select>
+            <input type="number" id="send_amt" placeholder="보낼 금액">
+            <button onclick="bankAction('send')" style="background:var(--pink); color:black; font-weight:bold; border:none; padding:10px; width:100%; cursor:pointer;">송금하기</button>
+        </div>
+        <div class="card">
+            <h3>🏦 대출 및 상환</h3>
+            <input type="number" id="loan_amt" placeholder="대출/상환 금액">
+            <div style="display:flex; gap:10px;">
+                <button onclick="bankAction('loan')" style="flex:1">대출</button>
+                <button onclick="bankAction('repay')" style="flex:1; background:#ff5555">상환</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>👑 등급 구매</h3>
+            <p>다음 등급: {{ GRADE_DATA[user['grade']]['next'] or '최고등급' }}</p>
+            <p>비용: {{ "{:,}".format(GRADE_DATA[user['grade']]['up_cost']) }}원</p>
+            <button onclick="bankAction('upgrade')">구매하기</button>
+        </div>
+    </div>
+
+    <div id="tab-slot" class="tab">
+        <div class="card">
+            <h2>🎰 아잉 슬롯</h2>
+            <div class="reels">
+                <div id="r1" class="reel">❓</div>
+                <div id="r2" class="reel">❓</div>
+                <div id="r3" class="reel">❓</div>
+            </div>
+            <input type="number" id="slot_bet" value="1000">
+            <button onclick="spinSlot()" style="background:#50fa7b; color:black; font-weight:bold; height:50px; border:none; width:100%; border-radius:10px; cursor:pointer;">돌리기!</button>
+        </div>
+    </div>
+</main>
+
+<script>
+    function showTab(id) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + id).classList.add('active');
+    }
+
+    async function bankAction(action) {
+        const amt = document.getElementById(action === 'upgrade' ? '' : action.split('_')[0] + '_amt')?.value;
+        const to_id = document.getElementById('to_id')?.value;
+        try {
+            const res = await axios.post('/api/bank', { action, amount: amt, to_id });
+            alert(res.data.msg); location.reload();
+        } catch(e) { alert(e.response.data.error); }
+    }
+
+    async function spinSlot() {
+        const bet = document.getElementById('slot_bet').value;
+        try {
+            const res = await axios.post('/api/casino/slot', { bet });
+            const reels = res.data.results;
+            document.getElementById('r1').innerText = reels[0];
+            document.getElementById('r2').innerText = reels[1];
+            document.getElementById('r3').innerText = reels[2];
+            setTimeout(() => alert(res.data.win > 0 ? res.data.win + "원 당첨!" : "꽝!"), 100);
+            setTimeout(() => location.reload(), 1000);
+        } catch(e) { alert(e.response.data.error); }
+    }
+</script>
+</body>
+</html>
